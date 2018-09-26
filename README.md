@@ -9,7 +9,7 @@ Baseline Codes for Colorectal Cancer Segmentation
 #### Import Aperio-ImageScope formated image into QuPath 
 
 1. Import original image
-<p align="center"><img width="100%" src="assets/origianl.png" /></p>
+<p align="center"><img width="100%" src="assets/original.png" /></p>
 
 2. Run ```scope_to_qu.groovy``` via Automate-Show script editor
 <p align="center"><img width="80%" src="assets/code_scope_to_qu.png" /></p>
@@ -22,7 +22,7 @@ Baseline Codes for Colorectal Cancer Segmentation
 
 #### Export annotated image file by patch
 1. Import original image
-<p align="center"><img width="100%" src="assets/origianl.png" /></p>
+<p align="center"><img width="100%" src="assets/original.png" /></p>
 
 2. Run ```patch_maker.groovy``` via Automate-Show script editor
 <p align="center"><img width="80%" src="assets/code_patch_maker.png" /></p>
