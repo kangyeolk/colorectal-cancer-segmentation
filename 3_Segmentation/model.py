@@ -80,4 +80,5 @@ class UNet(nn.Module):
 if __name__ == '__main__':
     sample = torch.randn((2, 3, 128, 128))
     model = UNet(num_classes=2)
-    print(model(sample).size())
+    #print(model(sample).size())
+    print(model(sample))

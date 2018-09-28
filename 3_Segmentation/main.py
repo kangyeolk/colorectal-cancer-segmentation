@@ -15,38 +15,39 @@ def main(config):
     
     if config.mode == 'train':
         # Get Dataloder
-        train_data_loader = get_loader(config=config,
-                                       data_type='train')
-        val_data_loader = get_loader(config=config,
-                                     data_type='val')
+        train_loader = get_loader(config=config,
+                                  data_type='train')
+        val_loader = get_loader(config=config,
+                                data_type='val')
         
         # Training
         solver = Solver(config=config,
                         train_loader=train_loader,
                         val_loader=val_loader)
-        solver.train()
+        solver.train_val()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Training setting
-    parser.add_argument('--mode', type=str, default=train, choice=['train'])
+    parser.add_argument('--mode', type=str, default='train', choices=['train'])
     parser.add_argument('--n_epochs', type=int, default=100)
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--beta0', type=float, default=0.5)
     parser.add_argument('--beta1', type=float, default=0.99)
 
     # Path
-    parser.add_argument('--train_data_path', type=str, default='./train')
-    parser.add_argument('--val_data_path', type=str, default='./val')
+    parser.add_argument('--train_data_path', type=str, default='../../../data/cancer_data/patch_256/train')
+    parser.add_argument('--val_data_path', type=str, default='../../../data/cancer_data/patch_256//val')
     parser.add_argument('--test_data_path', type=str, default='./test')
     parser.add_argument('--sample_save_path', type=str, default='./samples')
-    parser.add_argument('--model_save_path', type=str, './model')
+    parser.add_argument('--model_save_path', type=str, default='./model')
 
     # Logging
     parser.add_argument('--log_step', type=int, default=1)
+    parser.add_argument('--val_step', type=int, default=1)
     parser.add_argument('--sample_save', type=str2bool, default='True')
     parser.add_argument('--model_save', type=str2bool, default='True')
     parser.add_argument('--use_visdom', type=str2bool, default='True')
