@@ -48,8 +48,8 @@ if __name__ == "__main__":
     # Logging
     parser.add_argument('--log_step', type=int, default=1)
     parser.add_argument('--val_step', type=int, default=1)
-    parser.add_argument('--sample_save', type=str2bool, default='True')
-    parser.add_argument('--model_save', type=str2bool, default='True')
+    parser.add_argument('--sample_save_epoch', type=int, default=1)
+    parser.add_argument('--model_save_epoch', type=int, default=1)
     parser.add_argument('--use_visdom', type=str2bool, default='True')
 
     # Misc

@@ -1,10 +1,13 @@
 import torch
 import torch.nn as nn
+from torchvision.utils import save_image
 import torch.backends.cudnn as cudnn
 
 import time
 
 from model import UNet
+from utils import cal_mIoU, cal_pixel_acc, denorm
+# from logger import Logger
 
 cudnn.benchmark = True
 
@@ -12,7 +15,7 @@ class Solver:
 
     def __init__(self, config, train_loader=None, val_loader=None, test_loader=None):
         self.cfg = config
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if self.cfg.mode == 'train':
             self.train_loader = train_loader
@@ -27,10 +30,9 @@ class Solver:
 
     
     def train_val(self):
-        self.train_time = AverageMeter()
-        self.train_loss = AverageMeter()
-        self.IoU = AverageMeter() #TODO
-
+        # Build record objs
+        self.build_recorder()
+        
         iter_per_epoch = len(self.train_loader) // self.cfg.batch_size
         if len(self.train_loader) % self.cfg.batch_size != 0:
             iter_per_epoch += 1
@@ -38,9 +40,11 @@ class Solver:
         for epoch in range(self.cfg.n_epochs):
             
             self.model.train()
+            
             self.train_time.reset()
             self.train_loss.reset()
-            self.IoU = AverageMeter()
+            self.train_pix_acc.reset()
+            self.train_mIoU.reset()
             
             for i, (image, label) in enumerate(self.train_loader):
                 start_time = time.time()
@@ -48,7 +52,6 @@ class Solver:
                 label_var = label.to(self.device)
                 
                 output = self.model(image_var)
-                # print(output.size(), label_var.size())
                 loss = self.criterion(output, label_var)
                 
                 self.optim.zero_grad()
@@ -57,24 +60,90 @@ class Solver:
 
                 end_time = time.time()
                 
+                # Record mIoU and pixel-wise accuracy
+                pix_acc = cal_pixel_acc(output, label_var)
+                mIoU = cal_mIoU(output, label_var)[-1]
+                mIoU = torch.mean(mIoU)
+
+                # Update recorders
                 self.train_time.update(end_time - start_time)
-                self.train_loss.update(loss)
+                self.train_loss.update(loss.item())
+                self.train_pix_acc.update(pix_acc.item())
+                self.train_mIoU.update(mIoU.item())
 
                 if (i + 1) % self.cfg.log_step == 0:
                     print('Epoch[{0}][{1}/{2}]\t'
                           'Time {train_time.val:.3f} ({train_time.avg:.3f})\t'
-                          'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
+                          'Loss {train_loss.val:.4f} ({train_loss.avg:.4f})\t'
+                          'Pixel-Acc {train_pix_acc.val:.4f} ({train_pix_acc.avg:.4f})\t'
+                          'mIoU {train_mIoU.val:.4f} ({train_mIoU.avg:.4f})'.format(
                               epoch + 1, i + 1, iter_per_epoch, 
-                              train_time=self.train_time, loss=self.train_loss))
-
-                if (epoch + 1) % self.cfg.val_step == 0:
-                    self.validate(epoch)
-        
+                              train_time=self.train_time, 
+                              train_loss=self.train_loss,
+                              train_pix_acc=self.train_pix_acc,
+                              train_mIoU=self.train_mIoU))
+                
+                #FIXME currently test validation code
+                #if (epoch + 1) % self.cfg.val_step == 0:
+                #    self.validate(epoch)
+    
     def validate(self, epoch):
         """ Validate with validation dataset """
         self.model.eval()
-        pass
+
+        self.val_time.reset()
+        self.val_loss.reset()
+        self.val_mIoU.reset()
+        self.val_pix_acc.reset()
+
+        iter_per_epoch = len(self.val_loader) // self.cfg.batch_size
+        if len(self.val_loader) % self.cfg.batch_size != 0:
+            iter_per_epoch += 1
+
+        for i, (image, label) in enumerate(self.val_loader):
+                
+            start_time = time.time()
+            image_var = image.to(self.device)
+            label_var = label.to(self.device)
+            
+            output = self.model(image_var)
+            loss = self.criterion(output, label_var)
+
+            end_time = time.time()
+            
+            # Record mIoU and pixel-wise accuracy
+            pix_acc = cal_pixel_acc(output, label_var)
+            mIoU = cal_mIoU(output, label_var)[-1]
+            mIoU = torch.mean(mIoU)
+
+            # Update recorders
+            self.val_time.update(end_time - start_time)
+            self.val_loss.update(loss.item())
+            self.val_pix_acc.update(pix_acc.item())
+            self.val_mIoU.update(mIoU.item())
+            
+            if (i + 1) % self.cfg.log_step == 0:
+                print(' ##### Validation\t'
+                      'Epoch[{0}][{1}/{2}]\t'
+                      'Time {val_time.val:.3f} ({val_time.avg:.3f})\t'
+                      'Loss {val_loss.val:.4f} ({val_loss.avg:.4f})\t'
+                      'Pixel-Acc {val_pix_acc.val:.4f} ({val_pix_acc.avg:.4f})\t'
+                      'mIoU {val_mIoU.val:.4f} ({val_mIoU.avg:.4f})'.format(
+                          epoch + 1, i + 1, iter_per_epoch, 
+                          val_time=self.val_time, 
+                          val_loss=self.val_loss,
+                          val_pix_acc=self.val_pix_acc,
+                          val_mIoU=self.val_mIoU))
+            
+        if (epoch + 1) % self.cfg.sample_save_epoch:
+            pred = torch.argmax(output, dim=1)
+            save_image(image, './sample/ori_' + str(epoch + 1) + '.png')
+            save_image(label, './sample/true_' + str(epoch + 1) + '.png')
+            save_image(pred, './sample/pred_' + str(epoch + 1) + '.png')
     
+        #TODO:
+        #   i) saving model
+        #   ii) tensorboard or visdom
     
     def build_model(self):
         """ Rough """
@@ -83,9 +152,26 @@ class Solver:
         self.optim = torch.optim.Adam(self.model.parameters(),
                                       lr=self.cfg.lr,
                                       betas=(self.cfg.beta0, self.cfg.beta1))
+        
+
+    def build_recorder(self):
+        self.train_time = AverageMeter()
+        self.train_loss = AverageMeter()
+        self.train_mIoU = AverageMeter()
+        self.train_pix_acc = AverageMeter()
+
+        self.val_time = AverageMeter()
+        self.val_loss = AverageMeter()
+        self.val_mIoU = AverageMeter()
+        self.val_pix_acc = AverageMeter()
+
+        # self.logger = Logger('./logs')
+
     
     def load_pre_model(self):
         """ Load pretrained model """
+        #TODO:
+        # Loading model
         pass
 
 class AverageMeter(object):

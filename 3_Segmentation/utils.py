@@ -19,3 +19,51 @@ def to_np(x):
 
 def to_tensor(x):
     return torch.tensor(x)
+
+def denorm(x):
+    out = (x + 1) / 2
+    return out.clamp_(0, 1)
+
+#TODO: convert multi-class to rgb value to saveeee... 
+def label_to_rgb(x):
+    pass
+
+def cal_mIoU(preds, labels):
+    """ 
+    Calculate Intersection over Union
+    args
+        @preds: (N, C, H, W) dimensional output prediction maps
+        @labels: (N, H, W) dimensional true class-labeled maps
+    return
+        @mIoU: vector, batch-wise
+    """
+    try:
+        N, C, _, _ = preds.size()
+    except:
+        C, _, _ = preds.size()
+        N = 1
+    IoU = []
+    labels_pred = torch.argmax(preds, dim=1)
+    labels_pred = labels_pred.view(N, -1)
+    labels = labels.view(N, -1)
+    for i in range(C):
+        inter_cnt = torch.sum(((labels_pred == labels) * (labels == i)).float(), dim=1)
+        union_cnt = torch.sum((labels_pred == i).float()) \
+                    + torch.sum((labels == i).float()) \
+                    - inter_cnt
+        IoU.append((inter_cnt / union_cnt))
+    IoU.append((sum(IoU) / C)) # add mean IoU
+    return IoU
+
+def cal_pixel_acc(preds, labels):
+    """ 
+    Calculate Pixel Accuracy
+    args 
+        @preds: (N, C, H, W) dimensional output prediction maps
+        @labels: (N, H, W) dimensional true class-labeled maps
+    return
+        @out: scalar, mean pixel accuaracy over all batch. 
+    """
+    labels_pred = torch.argmax(preds, dim=1)
+    out = (labels_pred == labels).float() # ByteTensor => FloatTensor
+    return torch.mean(out)
