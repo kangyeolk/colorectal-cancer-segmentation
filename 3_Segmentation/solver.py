@@ -16,6 +16,7 @@ class Solver:
     def __init__(self, config, train_loader=None, val_loader=None, test_loader=None):
         self.cfg = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.n_gpus = self.cfg.n_gpus
 
         if self.cfg.mode == 'train':
             self.train_loader = train_loader
@@ -33,8 +34,8 @@ class Solver:
         # Build record objs
         self.build_recorder()
         
-        iter_per_epoch = len(self.train_loader) // self.cfg.batch_size
-        if len(self.train_loader) % self.cfg.batch_size != 0:
+        iter_per_epoch = len(self.train_loader) // self.cfg.train_batch_size
+        if len(self.train_loader) % self.cfg.train_batch_size != 0:
             iter_per_epoch += 1
         
         for epoch in range(self.cfg.n_epochs):
@@ -96,8 +97,8 @@ class Solver:
         self.val_mIoU.reset()
         self.val_pix_acc.reset()
 
-        iter_per_epoch = len(self.val_loader) // self.cfg.batch_size
-        if len(self.val_loader) % self.cfg.batch_size != 0:
+        iter_per_epoch = len(self.val_loader) // self.cfg.val_batch_size
+        if len(self.val_loader) % self.cfg.val_batch_size != 0:
             iter_per_epoch += 1
 
         for i, (image, label) in enumerate(self.val_loader):
@@ -135,11 +136,14 @@ class Solver:
                           val_pix_acc=self.val_pix_acc,
                           val_mIoU=self.val_mIoU))
             
-        if (epoch + 1) % self.cfg.sample_save_epoch:
+        if (epoch + 1) % self.cfg.sample_save_epoch == 0:
             pred = torch.argmax(output, dim=1)
             save_image(image, './sample/ori_' + str(epoch + 1) + '.png')
             save_image(label, './sample/true_' + str(epoch + 1) + '.png')
             save_image(pred, './sample/pred_' + str(epoch + 1) + '.png')
+
+        if (epoch + 1) % self.cfg.model_save_epoch == 0:
+            pass
     
         #TODO:
         #   i) saving model
@@ -147,11 +151,16 @@ class Solver:
     
     def build_model(self):
         """ Rough """
-        self.model = UNet(num_classes=2).to(self.device)
+        self.model = UNet(num_classes=2)
         self.criterion = nn.CrossEntropyLoss()
         self.optim = torch.optim.Adam(self.model.parameters(),
                                       lr=self.cfg.lr,
                                       betas=(self.cfg.beta0, self.cfg.beta1))
+        if self.n_gpus > 1:
+            print('### {} of gpus are used!!!'.format(self.n_gpus))
+            self.model = nn.DataParallel(self.model)
+        
+        self.model = self.model.to(self.device)
         
 
     def build_recorder(self):

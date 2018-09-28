@@ -8,9 +8,9 @@ from solver import Solver
 
 def main(config):
 
-    if config.sample_save:
+    if config.sample_save_path:
         mkdir(config.sample_save_path)
-    if config.model_save:
+    if config.model_save_path:
         mkdir(config.sample_save_path)
     
     if config.mode == 'train':
@@ -33,7 +33,8 @@ if __name__ == "__main__":
     # Training setting
     parser.add_argument('--mode', type=str, default='train', choices=['train'])
     parser.add_argument('--n_epochs', type=int, default=100)
-    parser.add_argument('--batch_size', type=int, default=2)
+    parser.add_argument('--train_batch_size', type=int, default=2)
+    parser.add_argument('--val_batch_size', type=int, default=2)
     parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--beta0', type=float, default=0.5)
     parser.add_argument('--beta1', type=float, default=0.99)
@@ -42,7 +43,7 @@ if __name__ == "__main__":
     parser.add_argument('--train_data_path', type=str, default='../../../data/cancer_data/patch_256/train')
     parser.add_argument('--val_data_path', type=str, default='../../../data/cancer_data/patch_256//val')
     parser.add_argument('--test_data_path', type=str, default='./test')
-    parser.add_argument('--sample_save_path', type=str, default='./samples')
+    parser.add_argument('--sample_save_path', type=str, default='./sample')
     parser.add_argument('--model_save_path', type=str, default='./model')
 
     # Logging
@@ -54,6 +55,7 @@ if __name__ == "__main__":
 
     # Misc
     parser.add_argument('--pre_model', type=str, default=None)
+    parser.add_argument('--n_gpus', type=int, default=2)
 
     config = parser.parse_args()
     print(config)

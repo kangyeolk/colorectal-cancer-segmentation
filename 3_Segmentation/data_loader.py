@@ -19,7 +19,7 @@ def get_loader(config, data_type):
                                transform=transform)
                                
         data_loader = data.DataLoader(dataset=data_set,
-                                      batch_size=config.batch_size,
+                                      batch_size=config.train_batch_size,
                                       shuffle=True,
                                       num_workers=2)
     
@@ -28,7 +28,7 @@ def get_loader(config, data_type):
                                transform=transform)
                                
         data_loader = data.DataLoader(dataset=data_set,
-                                      batch_size=config.batch_size,
+                                      batch_size=config.val_batch_size,
                                       shuffle=True,
                                       num_workers=2)
                                       
