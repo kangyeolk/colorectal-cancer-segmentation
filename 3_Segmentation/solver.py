@@ -26,8 +26,10 @@ class Solver:
         
         # Build model
         self.build_model()
-        if self.cfg.pre_model:
+        if self.cfg.resume:
             self.load_pre_model()
+        else:
+            self.start_epoch = 0
 
     
     def train_val(self):
@@ -38,7 +40,7 @@ class Solver:
         if len(self.train_loader) % self.cfg.train_batch_size != 0:
             iter_per_epoch += 1
         
-        for epoch in range(self.cfg.n_epochs):
+        for epoch in range(self.start_epoch, self.start_epoch + self.cfg.n_epochs):
             
             self.model.train()
             
@@ -143,7 +145,12 @@ class Solver:
             save_image(pred, './sample/pred_' + str(epoch + 1) + '.png')
 
         if (epoch + 1) % self.cfg.model_save_epoch == 0:
-            pass
+            state = {
+                'epoch': epoch + 1,
+                'state_dict': self.model.state_dict(),
+                'optim': self.optim.state_dict()
+            }
+            torch.save(state, './model/model_' + str(epoch + 1) + 'pth')
     
         #TODO:
         #   i) saving model
@@ -179,9 +186,13 @@ class Solver:
     
     def load_pre_model(self):
         """ Load pretrained model """
-        #TODO:
-        # Loading model
-        pass
+        print('=> loading checkpoint {}'.format(self.cfg.pre_model))
+        checkpoint = torch.load(self.cfg.pre_model)
+        self.start_epoch = checkpoint['epoch']
+        self.model.load_state_dict(checkpoint['state_dict'])
+        self.optim.load_state_dict(checkpoint['optim'])
+        print('=> loaded checkpoint {}(epoch {})'.format(
+            self.cfg.pre_model, self.start_epoch))
 
 class AverageMeter(object):
     """ Computes and stores the average and current value """
