@@ -25,13 +25,25 @@ def main(config):
                         train_loader=train_loader,
                         val_loader=val_loader)
         solver.train_val()
+    elif config.mode == 'test':
+        train_loader = get_loader(config=config,
+                                  data_type='train')
+        val_loader = get_loader(config=config,
+                                data_type='val')
+        
+        # Training
+        solver = Solver(config=config,
+                        train_loader=train_loader,
+                        val_loader=val_loader)
+        solver.save_samples()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Training setting
-    parser.add_argument('--mode', type=str, default='train', choices=['train'])
+    parser.add_argument('--task', type=str, default='cls', choices=['cls', 'seg'], help="Later both will be merged")
+    parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
     parser.add_argument('--n_epochs', type=int, default=100)
     parser.add_argument('--train_batch_size', type=int, default=2)
     parser.add_argument('--val_batch_size', type=int, default=2)

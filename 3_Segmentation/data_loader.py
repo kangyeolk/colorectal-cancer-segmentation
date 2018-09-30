@@ -13,32 +13,90 @@ def get_loader(config, data_type):
         transforms.ToTensor(),
         transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
     ])
-       
-    if data_type == 'train': 
-        data_set = TrainLoader(data_path=config.train_data_path,
-                               transform=transform)
-                               
-        data_loader = data.DataLoader(dataset=data_set,
-                                      batch_size=config.train_batch_size,
-                                      shuffle=True,
-                                      num_workers=2)
-    
-    if data_type == 'val': 
-        data_set = TrainLoader(data_path=config.val_data_path,
-                               transform=transform)
-                               
-        data_loader = data.DataLoader(dataset=data_set,
-                                      batch_size=config.val_batch_size,
-                                      shuffle=True,
-                                      num_workers=2)
-                                      
+    if config.task == 'cls':
+        if data_type == 'train': 
+            data_set = ClsLoader(data_path=config.train_data_path,
+                                 transform=transform)
+                                
+            data_loader = data.DataLoader(dataset=data_set,
+                                          batch_size=config.train_batch_size,
+                                          shuffle=True,
+                                          num_workers=2)
+        
+        if data_type == 'val': 
+            data_set = ClsLoader(data_path=config.val_data_path,
+                                 transform=transform)
+                                
+            data_loader = data.DataLoader(dataset=data_set,
+                                          batch_size=config.val_batch_size,
+                                          shuffle=True,
+                                          num_workers=2)
+    elif config.task == 'seg':
+        if data_type == 'train': 
+            data_set = SegLoader(data_path=config.train_data_path,
+                                transform=transform)
+                                
+            data_loader = data.DataLoader(dataset=data_set,
+                                        batch_size=config.train_batch_size,
+                                        shuffle=True,
+                                        num_workers=2)
+        
+        if data_type == 'val': 
+            data_set = SegLoader(data_path=config.val_data_path,
+                                transform=transform)
+                                
+            data_loader = data.DataLoader(dataset=data_set,
+                                        batch_size=config.val_batch_size,
+                                        shuffle=True,
+                                        num_workers=2)
+                                        
     
     elif config.mode == 'test':
         pass
 
     return data_loader
 
-class TrainLoader(Dataset):
+class ClsLoader(Dataset):
+    def __init__(self, data_path, transform):
+        self.data_path = data_path
+        self.transform = transform
+        self.image_path = os.path.join(self.data_path, 'image')
+
+        # List up
+        self.image_list = os.listdir(self.image_path)
+        assert 'annotation.txt' in os.listdir(self.data_path), 'No annotation information'
+        self.anno_info = {}
+        self.read_anno()
+
+        # Syncronize orders of image and label
+        self.image_list = sorted(self.image_list)
+        self.anno_info = sorted(self.anno_info)
+
+    def read_anno(self):
+        with open('annotation.txt', 'r') as f:
+            for info in f:
+                name, label = info.split()
+                self.anno_info[name] = label
+
+    def __getitem__(self, index):
+        
+        image_name = self.image_list[index]
+        label = self.anno_info[index]
+
+        image = Image.open(os.path.join(self.image_path, image_name))
+
+        # Transform image, label in forms
+        if self.transform is not None:
+            image = self.transform(image)
+        label = to_tensor(label).long()
+        
+        return image, label
+
+    def __len__(self):
+        return len(self.image_list)
+
+
+class SegLoader(Dataset):
 
     def __init__(self, data_path, transform):
         self.data_path = data_path
@@ -67,7 +125,12 @@ class TrainLoader(Dataset):
 
     def __len__(self):
         return len(self.image_list)
-    
+
+
+
+
+
+
 """
 def rgb_to_label(x):
     to_np = np.array(x)

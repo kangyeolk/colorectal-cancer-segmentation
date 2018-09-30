@@ -18,7 +18,7 @@ class Solver:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.n_gpus = self.cfg.n_gpus
 
-        if self.cfg.mode == 'train':
+        if self.cfg.mode in ['train', 'test']:
             self.train_loader = train_loader
             self.val_loader = val_loader
         else:
@@ -193,6 +193,16 @@ class Solver:
         self.optim.load_state_dict(checkpoint['optim'])
         print('=> loaded checkpoint {}(epoch {})'.format(
             self.cfg.pre_model, self.start_epoch))
+
+    #FIXME: test..
+    def save_samples(self):
+        for i, (image, label) in enumerate(self.val_loader):
+            print(label[0])
+            save_image(image, './sample/ori_' + '.png')
+            save_image(torch.ones_like(label.unsqueeze(1)) - label.unsqueeze(1), './sample/true_' + '.png')
+            break
+       
+
 
 class AverageMeter(object):
     """ Computes and stores the average and current value """

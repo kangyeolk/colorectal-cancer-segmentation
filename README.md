@@ -38,9 +38,8 @@ Baseline Codes for Colorectal Cancer Segmentation
 ### TODO
 - [x] Complete baseline code and run it
 - [ ] Add code for utilizing ```Tensorboard``` and ```Visdom```
-- [ ] Add code for ```label_to_rgb``` ?
 - [ ] Annotate data thoroughly (10 images for train, validation, test).
-- [ ] Set a criterion for bridging stage-1 to stage-2. Current implementation is only for seperating between tissue and background(stage-1).
+- [ ] Detect region of tissues.
 
 
 ### Reference
