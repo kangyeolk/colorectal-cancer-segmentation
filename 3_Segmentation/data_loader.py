@@ -100,9 +100,19 @@ class SegLoader(Dataset):
         self.label_path = os.path.join(self.data_path, 'label')
 
         # Syncronize orders of image and label
-        self.image_list = sorted(os.listdir(self.image_path))
+        self.target_list = []
+        self.read_target()
+        self.image_list = [f for f in os.listdir(self.image_path) if f in self.target_list]
+        self.image_list = sorted(self.image_list)
         self.label_list = sorted(os.listdir(self.label_path))
-    
+
+    def read_target(self):
+        with open(os.path.join(self.data_path, 'annotation.txt'), 'r') as f:
+            for info in f:
+                name, label = info.split()
+                if label == '1':
+                    self.target_list.append(name)
+             
     def __getitem__(self, index):
         
         image_name = self.image_list[index]

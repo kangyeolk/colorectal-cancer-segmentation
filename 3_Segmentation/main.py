@@ -63,10 +63,10 @@ if __name__ == "__main__":
     parser.add_argument('--val_step', type=int, default=1)
     parser.add_argument('--sample_save_epoch', type=int, default=1)
     parser.add_argument('--model_save_epoch', type=int, default=1)
-    parser.add_argument('--use_tensorboard', type=str2bool, default='False')
+    parser.add_argument('--use_tensorboard', type=str2bool, default=True)
 
     # Misc
-    parser.add_argument('--resume', type=str2bool, default='False')
+    parser.add_argument('--resume', type=str2bool, default=False)
     parser.add_argument('--pre_model', type=str, default=None)
     parser.add_argument('--n_gpus', type=int, default=2)
 

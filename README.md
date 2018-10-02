@@ -83,6 +83,10 @@ $ python main.py --task=seg --mode=train --n_epochs=100 \
                  --sample_save_path=./sample --model_save_path=./model \
                  --use_tensorboard=True --n_gpus=2
 ```
+### Use tensorboard
+```bash
+$ tensorboard --logdir runs --port=8008
+```
 
 ## Inference with new data
 
@@ -91,10 +95,12 @@ It will be updated soon
 
 ### TODO
 - [x] Complete baseline code and run it
-- [ ] Add code for utilizing ```Tensorboard``` and ```Visdom```
+- [x] Add code for utilizing ```Tensorboard``` and ```Visdom```
 - [ ] Annotate data thoroughly (10 images for train, validation, test).
-- [ ] Detect region of tissues.
+- [x] Detect region of tissues. (Currently about 98% accuracy)
 - [ ] Add code for handling under sized image data(THEY SHOULD BE REMOVED)
+- [ ] Solve VPN problem (I was not able to enter server due to VPN connection problem..?)
+- [ ] Implement ```infer``` part
 
 
 ### Reference

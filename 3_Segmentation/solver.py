@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.utils import save_image
+from torchvision.utils import save_image, make_grid
 import torch.backends.cudnn as cudnn
 
 import time
@@ -36,6 +36,7 @@ class Solver:
         if self.cfg.use_tensorboard:
             try:
                 from tensorboardX import SummaryWriter
+                self.writer = SummaryWriter()
             except ImportError:
                 print('=> There is no module named tensorboardX, tensorboard disabled')
                 self.cfg.use_tensorboard = False
@@ -45,8 +46,8 @@ class Solver:
         # Build record objs
         self.build_recorder()
         
-        iter_per_epoch = len(self.train_loader) // self.cfg.train_batch_size
-        if len(self.train_loader) % self.cfg.train_batch_size != 0:
+        iter_per_epoch = len(self.train_loader.dataset) // self.cfg.train_batch_size
+        if len(self.train_loader.dataset) % self.cfg.train_batch_size != 0:
             iter_per_epoch += 1
         
         for epoch in range(self.start_epoch, self.start_epoch + self.cfg.n_epochs):
@@ -92,6 +93,11 @@ class Solver:
                                 train_time=self.train_time, 
                                 train_loss=self.train_loss,
                                 train_cls_acc=self.train_cls_acc))
+
+                    if self.cfg.use_tensorboard:
+                        self.writer.add_scalar('train/loss', loss.item(), epoch*iter_per_epoch + i)
+                        self.writer.add_scalar('train/accuracy', cls_acc.item(), epoch*iter_per_epoch + i)
+
                 
                 elif self.cfg.task == 'seg':
                     # Record mIoU and pixel-wise accuracy
@@ -114,10 +120,20 @@ class Solver:
                                 train_loss=self.train_loss,
                                 train_pix_acc=self.train_pix_acc,
                                 train_mIoU=self.train_mIoU))
+
+                    if self.cfg.use_tensorboard:
+                        self.writer.add_scalar('train/loss', loss.item(), epoch*iter_per_epoch + i)
+                        self.writer.add_scalar('train/pix_acc', pix_acc.item(), epoch*iter_per_epoch + i)
+                        self.writer.add_scalar('train/mIoU', mIoU.item(), epoch*iter_per_epoch + i)
+
                     
                 #FIXME currently test validation code
+                if (i + 1) % 100 == 0:
                 #if (epoch + 1) % self.cfg.val_step == 0:
-                #    self.validate(epoch)
+                    self.validate(epoch)
+        
+        # Close logging
+        self.writer.close()
     
     def validate(self, epoch):
         """ Validate with validation dataset """
@@ -129,8 +145,8 @@ class Solver:
         self.val_mIoU.reset()
         self.val_pix_acc.reset()
 
-        iter_per_epoch = len(self.val_loader) // self.cfg.val_batch_size
-        if len(self.val_loader) % self.cfg.val_batch_size != 0:
+        iter_per_epoch = len(self.val_loader.dataset) // self.cfg.val_batch_size
+        if len(self.val_loader.dataset) % self.cfg.val_batch_size != 0:
             iter_per_epoch += 1
 
         for i, (image, label) in enumerate(self.val_loader):
@@ -165,10 +181,9 @@ class Solver:
                             val_cls_acc=self.val_cls_acc))
 
                 if self.cfg.use_tensorboard:
-                    #TODO: Logging the tendency of value of Loss and Accuracy 
-                    pass
-                
-            
+                    self.writer.add_scalar('val/loss', loss.item(), epoch*iter_per_epoch + i)
+                    self.writer.add_scalar('val/accuracy', cls_acc.item(), epoch*iter_per_epoch + i)
+         
             elif self.cfg.task == 'seg':
                 # Record mIoU and pixel-wise accuracy
                 pix_acc = cal_pixel_acc(output, label_var)
@@ -193,24 +208,28 @@ class Solver:
                             val_mIoU=self.val_mIoU))
 
                 if self.cfg.use_tensorboard:
-                    #TODO: Logging the tendency of value of Loss / metric
-                    pass
-                
+                    self.writer.add_scalar('val/loss', loss.item(), epoch*iter_per_epoch + i)
+                    self.writer.add_scalar('val/pix_acc', pix_acc.item(), epoch*iter_per_epoch + i)
+                    self.writer.add_scalar('val/mIoU', mIoU.item(), epoch*iter_per_epoch + i)
+
 
         if self.cfg.task == 'cls':
-            pass
+            if (epoch + 1) % self.cfg.model_save_epoch == 0:
+                state = {
+                    'epoch': epoch + 1,
+                    'state_dict': self.model.state_dict(),
+                    'optim': self.optim.state_dict()
+                }
+                torch.save(state, './model/cls_model_' + str(epoch + 1) + 'pth')
+
 
         elif self.cfg.task == 'seg':
-            if self.cfg.use_tensorboard:
-                # Print samples out
-                pass
-
             # Save segmentation samples and model        
             if (epoch + 1) % self.cfg.sample_save_epoch == 0:
                 pred = torch.argmax(output, dim=1)
                 save_image(image, './sample/ori_' + str(epoch + 1) + '.png')
-                save_image(label, './sample/true_' + str(epoch + 1) + '.png')
-                save_image(pred, './sample/pred_' + str(epoch + 1) + '.png')
+                save_image(label.unsqueeze(1), './sample/true_' + str(epoch + 1) + '.png')
+                save_image(pred.cpu().unsqueeze(1), './sample/pred_' + str(epoch + 1) + '.png')
 
             if (epoch + 1) % self.cfg.model_save_epoch == 0:
                 state = {
@@ -218,8 +237,15 @@ class Solver:
                     'state_dict': self.model.state_dict(),
                     'optim': self.optim.state_dict()
                 }
-                torch.save(state, './model/model_' + str(epoch + 1) + 'pth')
-
+                torch.save(state, './model/seg_model_' + str(epoch + 1) + 'pth')
+            
+            if self.cfg.use_tensorboard:
+                image = make_grid(image)
+                label = make_grid(label.unsqueeze(1))
+                pred = make_grid(pred.cpu().unqueeze(1))
+                self.writer.add_image('Origianl', image, epoch + 1)
+                self.writer.add_image('Labels', label, epoch + 1)
+                self.writer.add_image('Predictions', pred, epoch + 1)
     
     def build_model(self):
         """ Rough """
@@ -272,14 +298,32 @@ class Solver:
         print('=> loaded checkpoint {}(epoch {})'.format(
             self.cfg.pre_model, self.start_epoch))
 
-    #FIXME: test..
-    def save_samples(self):
-        for i, (image, label) in enumerate(self.val_loader):
-            print(label[0])
-            save_image(image, './sample/ori_' + '.png')
-            save_image(torch.ones_like(label.unsqueeze(1)) - label.unsqueeze(1), './sample/true_' + '.png')
-            break
-       
+    #TODO:Inference part:
+    def infer(self, data):
+        """
+        input
+            @data: iterable 256 x 256 patches
+        output
+            @output : segmentation results from each patch
+                    i) If classifier's result is that there is a tissue inside of patch, outcome is a masked result.
+                    ii) Otherwise, output is segmentated mask which all of pixels are background
+        """ 
+        # Data Loading
+
+        # Load models of classification and segmetation and freeze them
+        self.freeze()
+        
+        # Forward images to Classification model / Select targeted images
+
+        # Forward images to Segmentation model
+
+        # Record Loss / Accuracy / Pixel-Accuracy
+
+        # Print samples out..
+
+    def freeze(self):
+        pass
+        print('{}, {} have frozen!!!'.format('model_name_1', 'model_name_2'))
 
 
 class AverageMeter(object):
