@@ -88,19 +88,19 @@ def preprocess(config):
     mkdir(os.path.join(root, 'test', 'label'))
 
     # Add annotation information
-    with open('./train/annotation.txt', 'w') as f:
+    with open(os.path.join(root, 'train', 'annotation.txt'), 'w+') as f:
         for train_image in train_images:
             f.write('{}\t{}\n'.format(train_image, 1))
         for train_bg_image in train_bg_images:
             f.write('{}\t{}\n'.format(train_bg_image, 0))
     
-    with open('./val/annotation.txt', 'w') as f:
+    with open(os.path.join(root, 'val', 'annotation.txt'), 'w+') as f:
         for val_image in val_images:
             f.write('{}\t{}\n'.format(val_image, 1))
         for val_bg_image in val_bg_images:
             f.write('{}\t{}\n'.format(val_bg_image, 0))
     
-    with open('./test/annotation.txt', 'w') as f:
+    with open(os.path.join(root, 'test', 'annotation.txt'), 'w+') as f:
         for test_image in test_images:
             f.write('{}\t{}\n'.format(test_image, 1))
         for test_bg_image in test_bg_images:

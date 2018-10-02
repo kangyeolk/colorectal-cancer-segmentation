@@ -65,25 +65,20 @@ class ClsLoader(Dataset):
         # List up
         self.image_list = os.listdir(self.image_path)
         assert 'annotation.txt' in os.listdir(self.data_path), 'No annotation information'
-        self.anno_info = {}
+        self.anno_info = dict()
         self.read_anno()
 
-        # Syncronize orders of image and label
-        self.image_list = sorted(self.image_list)
-        self.anno_info = sorted(self.anno_info)
-
     def read_anno(self):
-        with open('annotation.txt', 'r') as f:
+        with open(os.path.join(self.data_path, 'annotation.txt'), 'r') as f:
             for info in f:
                 name, label = info.split()
-                self.anno_info[name] = label
+                self.anno_info[name] = int(label)
 
     def __getitem__(self, index):
         
         image_name = self.image_list[index]
-        label = self.anno_info[index]
-
         image = Image.open(os.path.join(self.image_path, image_name))
+        label = self.anno_info[image_name]
 
         # Transform image, label in forms
         if self.transform is not None:

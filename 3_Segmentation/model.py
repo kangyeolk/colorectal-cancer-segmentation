@@ -1,6 +1,48 @@
 import torch
 import torch.nn as nn
 
+class BinaryClassifier(nn.Module):
+    def __init__(self, num_classes):
+        super(BinaryClassifier, self).__init__()
+        self.block = nn.Sequential(
+            nn.Conv2d(3, 4, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(4),
+            nn.Conv2d(4, 8, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(8),
+            nn.Conv2d(8, 16, kernel_size=3, stride=2, padding=1),
+            nn.ReLU())
+        self.fc = nn.Sequential(
+            nn.Linear(1024*16, 1024),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(512, num_classes))
+        self._initialize_weights()
+    
+    def forward(self, x):
+        x = self.block(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        return x
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
+
+
 '''
 Append padding to keep concat size & input-output size
 '''

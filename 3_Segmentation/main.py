@@ -52,8 +52,8 @@ if __name__ == "__main__":
     parser.add_argument('--beta1', type=float, default=0.99)
 
     # Path
-    parser.add_argument('--train_data_path', type=str, default='../../../data/cancer_data/patch_256/train')
-    parser.add_argument('--val_data_path', type=str, default='../../../data/cancer_data/patch_256//val')
+    parser.add_argument('--train_data_path', type=str, default='../../../data/cancer_data/patch256_39/train')
+    parser.add_argument('--val_data_path', type=str, default='../../../data/cancer_data/patch256_39//val')
     parser.add_argument('--test_data_path', type=str, default='./test')
     parser.add_argument('--sample_save_path', type=str, default='./sample')
     parser.add_argument('--model_save_path', type=str, default='./model')
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     parser.add_argument('--val_step', type=int, default=1)
     parser.add_argument('--sample_save_epoch', type=int, default=1)
     parser.add_argument('--model_save_epoch', type=int, default=1)
-    parser.add_argument('--use_visdom', type=str2bool, default='True')
+    parser.add_argument('--use_tensorboard', type=str2bool, default='False')
 
     # Misc
     parser.add_argument('--resume', type=str2bool, default='False')

@@ -24,6 +24,12 @@ def denorm(x):
     out = (x + 1) / 2
     return out.clamp_(0, 1)
 
+def cal_acc(preds, labels):
+    """Calculate Classification Accuracy"""
+    preds = torch.argmax(preds, dim=-1)
+    out = (preds==labels).float()
+    return torch.mean(out)
+
 #TODO: convert multi-class to rgb value to saveeee... 
 def label_to_rgb(x):
     pass

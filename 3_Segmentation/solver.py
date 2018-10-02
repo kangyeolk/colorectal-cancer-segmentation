@@ -5,9 +5,10 @@ import torch.backends.cudnn as cudnn
 
 import time
 
-from model import UNet
-from utils import cal_mIoU, cal_pixel_acc, denorm
+from model import BinaryClassifier, UNet
+from utils import cal_acc, cal_mIoU, cal_pixel_acc, denorm
 # from logger import Logger
+
 
 cudnn.benchmark = True
 
@@ -31,6 +32,14 @@ class Solver:
         else:
             self.start_epoch = 0
 
+        # Trigger Tensorboard Logger
+        if self.cfg.use_tensorboard:
+            try:
+                from tensorboardX import SummaryWriter
+            except ImportError:
+                print('=> There is no module named tensorboardX, tensorboard disabled')
+                self.cfg.use_tensorboard = False
+
     
     def train_val(self):
         # Build record objs
@@ -46,6 +55,7 @@ class Solver:
             
             self.train_time.reset()
             self.train_loss.reset()
+            self.train_cls_acc.reset()
             self.train_pix_acc.reset()
             self.train_mIoU.reset()
             
@@ -63,29 +73,48 @@ class Solver:
 
                 end_time = time.time()
                 
-                # Record mIoU and pixel-wise accuracy
-                pix_acc = cal_pixel_acc(output, label_var)
-                mIoU = cal_mIoU(output, label_var)[-1]
-                mIoU = torch.mean(mIoU)
-
-                # Update recorders
                 self.train_time.update(end_time - start_time)
                 self.train_loss.update(loss.item())
-                self.train_pix_acc.update(pix_acc.item())
-                self.train_mIoU.update(mIoU.item())
 
-                if (i + 1) % self.cfg.log_step == 0:
-                    print('Epoch[{0}][{1}/{2}]\t'
-                          'Time {train_time.val:.3f} ({train_time.avg:.3f})\t'
-                          'Loss {train_loss.val:.4f} ({train_loss.avg:.4f})\t'
-                          'Pixel-Acc {train_pix_acc.val:.4f} ({train_pix_acc.avg:.4f})\t'
-                          'mIoU {train_mIoU.val:.4f} ({train_mIoU.avg:.4f})'.format(
-                              epoch + 1, i + 1, iter_per_epoch, 
-                              train_time=self.train_time, 
-                              train_loss=self.train_loss,
-                              train_pix_acc=self.train_pix_acc,
-                              train_mIoU=self.train_mIoU))
+                if self.cfg.task == 'cls':
+                    # Record classification accuracy
+                    cls_acc = cal_acc(output, label_var)
+
+                    # Update recorder
+                    self.train_cls_acc.update(cls_acc.item())
+
+                    if (i + 1) % self.cfg.log_step == 0:
+                        print('Epoch[{0}][{1}/{2}]\t'
+                            'Time {train_time.val:.3f} ({train_time.avg:.3f})\t'
+                            'Loss {train_loss.val:.4f} ({train_loss.avg:.4f})\t'
+                            'Accuracy {train_cls_acc.val:.4f} ({train_cls_acc.avg:.4f})'.format(
+                                epoch + 1, i + 1, iter_per_epoch, 
+                                train_time=self.train_time, 
+                                train_loss=self.train_loss,
+                                train_cls_acc=self.train_cls_acc))
                 
+                elif self.cfg.task == 'seg':
+                    # Record mIoU and pixel-wise accuracy
+                    pix_acc = cal_pixel_acc(output, label_var)
+                    mIoU = cal_mIoU(output, label_var)[-1]
+                    mIoU = torch.mean(mIoU)
+
+                    # Update recorders
+                    self.train_pix_acc.update(pix_acc.item())
+                    self.train_mIoU.update(mIoU.item())
+
+                    if (i + 1) % self.cfg.log_step == 0:
+                        print('Epoch[{0}][{1}/{2}]\t'
+                            'Time {train_time.val:.3f} ({train_time.avg:.3f})\t'
+                            'Loss {train_loss.val:.4f} ({train_loss.avg:.4f})\t'
+                            'Pixel-Acc {train_pix_acc.val:.4f} ({train_pix_acc.avg:.4f})\t'
+                            'mIoU {train_mIoU.val:.4f} ({train_mIoU.avg:.4f})'.format(
+                                epoch + 1, i + 1, iter_per_epoch, 
+                                train_time=self.train_time, 
+                                train_loss=self.train_loss,
+                                train_pix_acc=self.train_pix_acc,
+                                train_mIoU=self.train_mIoU))
+                    
                 #FIXME currently test validation code
                 #if (epoch + 1) % self.cfg.val_step == 0:
                 #    self.validate(epoch)
@@ -96,6 +125,7 @@ class Solver:
 
         self.val_time.reset()
         self.val_loss.reset()
+        self.val_cls_acc.reset()
         self.val_mIoU.reset()
         self.val_pix_acc.reset()
 
@@ -113,52 +143,90 @@ class Solver:
             loss = self.criterion(output, label_var)
 
             end_time = time.time()
-            
-            # Record mIoU and pixel-wise accuracy
-            pix_acc = cal_pixel_acc(output, label_var)
-            mIoU = cal_mIoU(output, label_var)[-1]
-            mIoU = torch.mean(mIoU)
 
-            # Update recorders
             self.val_time.update(end_time - start_time)
             self.val_loss.update(loss.item())
-            self.val_pix_acc.update(pix_acc.item())
-            self.val_mIoU.update(mIoU.item())
             
-            if (i + 1) % self.cfg.log_step == 0:
-                print(' ##### Validation\t'
-                      'Epoch[{0}][{1}/{2}]\t'
-                      'Time {val_time.val:.3f} ({val_time.avg:.3f})\t'
-                      'Loss {val_loss.val:.4f} ({val_loss.avg:.4f})\t'
-                      'Pixel-Acc {val_pix_acc.val:.4f} ({val_pix_acc.avg:.4f})\t'
-                      'mIoU {val_mIoU.val:.4f} ({val_mIoU.avg:.4f})'.format(
-                          epoch + 1, i + 1, iter_per_epoch, 
-                          val_time=self.val_time, 
-                          val_loss=self.val_loss,
-                          val_pix_acc=self.val_pix_acc,
-                          val_mIoU=self.val_mIoU))
-            
-        if (epoch + 1) % self.cfg.sample_save_epoch == 0:
-            pred = torch.argmax(output, dim=1)
-            save_image(image, './sample/ori_' + str(epoch + 1) + '.png')
-            save_image(label, './sample/true_' + str(epoch + 1) + '.png')
-            save_image(pred, './sample/pred_' + str(epoch + 1) + '.png')
+            if self.cfg.task == 'cls':
+                # Record classification accuracy
+                cls_acc = cal_acc(output, label_var)
+                
+                # Update recorder
+                self.val_cls_acc.update(cls_acc.item())
+                
+                if (i + 1) % self.cfg.log_step == 0:
+                    print('Epoch[{0}][{1}/{2}]\t'
+                        'Time {val_time.val:.3f} ({val_time.avg:.3f})\t'
+                        'Loss {val_loss.val:.4f} ({val_loss.avg:.4f})\t'
+                        'Accuracy {val_cls_acc.val:.4f} ({val_cls_acc.avg:.4f})'.format(
+                            epoch + 1, i + 1, iter_per_epoch, 
+                            val_time=self.val_time, 
+                            val_loss=self.val_loss,
+                            val_cls_acc=self.val_cls_acc))
 
-        if (epoch + 1) % self.cfg.model_save_epoch == 0:
-            state = {
-                'epoch': epoch + 1,
-                'state_dict': self.model.state_dict(),
-                'optim': self.optim.state_dict()
-            }
-            torch.save(state, './model/model_' + str(epoch + 1) + 'pth')
-    
-        #TODO:
-        #   i) saving model
-        #   ii) tensorboard or visdom
+                if self.cfg.use_tensorboard:
+                    #TODO: Logging the tendency of value of Loss and Accuracy 
+                    pass
+                
+            
+            elif self.cfg.task == 'seg':
+                # Record mIoU and pixel-wise accuracy
+                pix_acc = cal_pixel_acc(output, label_var)
+                mIoU = cal_mIoU(output, label_var)[-1]
+                mIoU = torch.mean(mIoU)
+
+                # Update recorders
+                self.val_pix_acc.update(pix_acc.item())
+                self.val_mIoU.update(mIoU.item())
+            
+                if (i + 1) % self.cfg.log_step == 0:
+                    print(' ##### Validation\t'
+                        'Epoch[{0}][{1}/{2}]\t'
+                        'Time {val_time.val:.3f} ({val_time.avg:.3f})\t'
+                        'Loss {val_loss.val:.4f} ({val_loss.avg:.4f})\t'
+                        'Pixel-Acc {val_pix_acc.val:.4f} ({val_pix_acc.avg:.4f})\t'
+                        'mIoU {val_mIoU.val:.4f} ({val_mIoU.avg:.4f})'.format(
+                            epoch + 1, i + 1, iter_per_epoch, 
+                            val_time=self.val_time, 
+                            val_loss=self.val_loss,
+                            val_pix_acc=self.val_pix_acc,
+                            val_mIoU=self.val_mIoU))
+
+                if self.cfg.use_tensorboard:
+                    #TODO: Logging the tendency of value of Loss / metric
+                    pass
+                
+
+        if self.cfg.task == 'cls':
+            pass
+
+        elif self.cfg.task == 'seg':
+            if self.cfg.use_tensorboard:
+                # Print samples out
+                pass
+
+            # Save segmentation samples and model        
+            if (epoch + 1) % self.cfg.sample_save_epoch == 0:
+                pred = torch.argmax(output, dim=1)
+                save_image(image, './sample/ori_' + str(epoch + 1) + '.png')
+                save_image(label, './sample/true_' + str(epoch + 1) + '.png')
+                save_image(pred, './sample/pred_' + str(epoch + 1) + '.png')
+
+            if (epoch + 1) % self.cfg.model_save_epoch == 0:
+                state = {
+                    'epoch': epoch + 1,
+                    'state_dict': self.model.state_dict(),
+                    'optim': self.optim.state_dict()
+                }
+                torch.save(state, './model/model_' + str(epoch + 1) + 'pth')
+
     
     def build_model(self):
         """ Rough """
-        self.model = UNet(num_classes=2)
+        if self.cfg.task == 'cls':
+            self.model = BinaryClassifier(num_classes=2)
+        elif self.cfg.task == 'seg':
+            self.model = UNet(num_classes=2)
         self.criterion = nn.CrossEntropyLoss()
         self.optim = torch.optim.Adam(self.model.parameters(),
                                       lr=self.cfg.lr,
@@ -171,13 +239,23 @@ class Solver:
         
 
     def build_recorder(self):
+        # Train recorder
         self.train_time = AverageMeter()
         self.train_loss = AverageMeter()
+        
+        # For classification
+        self.train_cls_acc = AverageMeter()
+        # For segmentation
         self.train_mIoU = AverageMeter()
         self.train_pix_acc = AverageMeter()
 
+        # Validation recorder
         self.val_time = AverageMeter()
         self.val_loss = AverageMeter()
+
+        # For classification
+        self.val_cls_acc = AverageMeter()
+        # For segmentation
         self.val_mIoU = AverageMeter()
         self.val_pix_acc = AverageMeter()
 
