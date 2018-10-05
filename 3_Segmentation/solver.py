@@ -128,9 +128,9 @@ class Solver:
 
                     
                 #FIXME currently test validation code
-                if (i + 1) % 100 == 0:
-                #if (epoch + 1) % self.cfg.val_step == 0:
-                    self.validate(epoch)
+                #if (i + 1) % 100 == 0:
+            if (epoch + 1) % self.cfg.val_step == 0:
+                self.validate(epoch)
         
         # Close logging
         self.writer.close()
@@ -220,7 +220,9 @@ class Solver:
                     'state_dict': self.model.state_dict(),
                     'optim': self.optim.state_dict()
                 }
-                torch.save(state, './model/cls_model_' + str(epoch + 1) + 'pth')
+                if self.best_cls < self.val_cls_acc.avg:
+                    self.best_cls = self.val_cls_acc.avg
+                    torch.save(state, './model/cls_model_' + str(epoch + 1) + '_' + str(self.val_cls_acc.avg)[0:5] + '.pth')
 
 
         elif self.cfg.task == 'seg':
@@ -237,7 +239,9 @@ class Solver:
                     'state_dict': self.model.state_dict(),
                     'optim': self.optim.state_dict()
                 }
-                torch.save(state, './model/seg_model_' + str(epoch + 1) + 'pth')
+                if self.best_seg < self.val_pix_acc.avg:
+                    self.best_seg = self.val_pix_acc.avg
+                    torch.save(state, './model/seg_model_' + str(epoch + 1) + '_' + str(self.val_pix_acc.avg)[0:5] + '.pth')
             
             if self.cfg.use_tensorboard:
                 image = make_grid(image)
@@ -286,7 +290,8 @@ class Solver:
         self.val_pix_acc = AverageMeter()
 
         # self.logger = Logger('./logs')
-
+        self.best_cls = 0
+        self.best_seg = 0
     
     def load_pre_model(self):
         """ Load pretrained model """

@@ -11,7 +11,7 @@ def main(config):
     if config.sample_save_path:
         mkdir(config.sample_save_path)
     if config.model_save_path:
-        mkdir(config.sample_save_path)
+        mkdir(config.model_save_path)
     
     if config.mode == 'train':
         # Get Dataloder
